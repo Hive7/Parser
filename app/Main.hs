@@ -1,7 +1,6 @@
 module Main where
 
-import           Lib
-import           StateParser
+import           JSONParser
 import           System.IO
 
 main :: IO ()
@@ -9,6 +8,6 @@ main = do
   handle <- openFile "./test/input.json" ReadMode
   contents <- hGetContents handle
   putStr contents
-  json <- fst <$> parse contents parseJSON
+  json <- parseJSON contents
   print json
   return ()

@@ -1,4 +1,4 @@
-module StateParser where
+module JSONParser (parseJSON) where
 
 import           JSONTypes
 import           Control.Monad.Trans.State
@@ -8,9 +8,6 @@ import           Control.Monad
 import           Data.Char
 
 type SParser m a = StateT String m a
-
-parse :: Monad m => String -> SParser m a -> m (a, String)
-parse = flip runStateT
 
 ch :: MonadFail m => (Char -> Bool) -> SParser m Char
 ch f = do
@@ -65,16 +62,16 @@ parseArr c c' x = (ch (== c) *> many (x <* tokench ',') <* tokench c')
   <|> (ch (== c) *> ((:) <$> x <*> many (tokench ',' *> x)) <* tokench c')
 
 parseArray :: (MonadPlus m, MonadFail m) => SParser m JSON
-parseArray = JArray <$> (parseArr '[' ']' parseJSON)
+parseArray = JArray <$> (parseArr '[' ']' parseJSONData)
 
 parsePair :: (MonadPlus m, MonadFail m) => SParser m (String, JSON)
-parsePair = (,) <$> parseStr <* tokench ':' <*> parseJSON
+parsePair = (,) <$> parseStr <* tokench ':' <*> parseJSONData
 
 parseObject :: (MonadPlus m, MonadFail m) => SParser m JSON
 parseObject = JObject <$> (parseArr '{' '}' parsePair)
 
-parseJSON :: (MonadPlus m, MonadFail m) => SParser m JSON
-parseJSON = token
+parseJSONData :: (MonadPlus m, MonadFail m) => SParser m JSON
+parseJSONData = token
   $ parseObject
   <|> parseArray
   <|> parseString
@@ -82,5 +79,5 @@ parseJSON = token
   <|> parseBool
   <|> parseNull
 
-parseMany :: (MonadPlus m, MonadFail m) => SParser m [JSON]
-parseMany = many parseJSON
+parseJSON :: (MonadPlus m, MonadFail m) => String -> m JSON
+parseJSON = evalStateT parseJSONData
