@@ -18,7 +18,7 @@ ch f = do
     else F.fail "Parse Error"
 
 space :: (MonadPlus m, MonadFail m) => SParser m Char
-space = ch (`elem` " \n\r")
+space = ch (`elem` " \n\r\t")
 
 token :: (MonadPlus m, MonadFail m) => SParser m a -> SParser m a
 token = (*>) $ many space
@@ -34,14 +34,14 @@ matchstr (x:xs) = ch (== x) *> matchstr xs
 matchconst :: MonadFail m => a -> String -> SParser m a
 matchconst x y = x <$ matchstr y
 
-parseStr :: (MonadPlus m, MonadFail m) => Bool -> SParser m String
-parseStr False = token
-  $ ch (== '\"') *> many (matchstr "\\\"" <|> ch (/= '\"')) <* ch (== '\"')
-parseStr True = token
-  $ ch (== '\"') *> some (matchstr "\\\"" <|> ch (/= '\"')) <* ch (== '\"')
+parseStr :: (MonadPlus m, MonadFail m)
+         => (SParser m Char -> SParser m String)
+         -> SParser m String
+parseStr x = token
+  $ ch (== '\"') *> x (matchstr "\\\"" <|> ch (/= '\"')) <* ch (== '\"')
 
 parseString :: (MonadPlus m, MonadFail m) => SParser m JSON
-parseString = JString <$> parseStr False
+parseString = JString <$> parseStr many
 
 parseNumber :: (MonadPlus m, MonadFail m) => SParser m JSON
 parseNumber = JNumber . fromIntegral . read <$> some (ch isDigit)
@@ -67,7 +67,7 @@ parseArray :: (MonadPlus m, MonadFail m) => SParser m JSON
 parseArray = JArray <$> parseArr '[' ']' parseJSONData
 
 parsePair :: (MonadPlus m, MonadFail m) => SParser m (String, JSON)
-parsePair = (,) <$> parseStr True <* tokench ':' <*> parseJSONData
+parsePair = (,) <$> parseStr some <* tokench ':' <*> parseJSONData
 
 parseObject :: (MonadPlus m, MonadFail m) => SParser m JSON
 parseObject = JObject <$> parseArr '{' '}' parsePair
