@@ -59,29 +59,19 @@ parseBool = parseTrue <|> parseFalse
 parseNull :: MonadFail m => SParser m JSON
 parseNull = matchconst JNull "null"
 
-parseTrailingArray :: (MonadPlus m, MonadFail m) => SParser m [JSON]
-parseTrailingArray = ch (== '[') *> many (parseJSON <* tokench ',')
-  <* tokench ']'
-
-parseNonTrailingArray :: (MonadPlus m, MonadFail m) => SParser m [JSON]
-parseNonTrailingArray = ch (== '[')
-  *> ((:) <$> parseJSON <*> many (tokench ',' *> parseJSON))
-  <* tokench ']'
+parseArr
+  :: (MonadPlus m, MonadFail m) => Char -> Char -> SParser m a -> SParser m [a]
+parseArr c c' x = (ch (== c) *> many (x <* tokench ',') <* tokench c')
+  <|> (ch (== c) *> ((:) <$> x <*> many (tokench ',' *> x)) <* tokench c')
 
 parseArray :: (MonadPlus m, MonadFail m) => SParser m JSON
-parseArray = JArray <$> (parseTrailingArray <|> parseNonTrailingArray)
-
-parseTObject :: (MonadPlus m, MonadFail m) => SParser m [(String, JSON)]
-parseTObject = ch (== '{') *> many (parsePair <* tokench ',') <* tokench '}'
-
-parseNTObject :: (MonadPlus m, MonadFail m) => SParser m [(String, JSON)]
-parseNTObject = ch (== '{') *> ((:) <$> parsePair <*> many (tokench ',' *> parsePair)) <* tokench '}'
+parseArray = JArray <$> (parseArr '[' ']' parseJSON)
 
 parsePair :: (MonadPlus m, MonadFail m) => SParser m (String, JSON)
 parsePair = (,) <$> parseStr <* tokench ':' <*> parseJSON
 
 parseObject :: (MonadPlus m, MonadFail m) => SParser m JSON
-parseObject = JObject <$> (parseTObject <|> parseNTObject)
+parseObject = JObject <$> (parseArr '{' '}' parsePair)
 
 parseJSON :: (MonadPlus m, MonadFail m) => SParser m JSON
 parseJSON = token
