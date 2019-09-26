@@ -31,14 +31,15 @@ tokench x = token $ ch (== x)
 
 matchstr :: MonadFail m => String -> SParser m Char
 matchstr [] = ch $ const False
-matchstr [x] = ch $ const True
+matchstr [x] = ch (== x)
 matchstr (x:xs) = ch (== x) *> matchstr xs
 
 matchconst :: MonadFail m => a -> String -> SParser m a
 matchconst x y = x <$ matchstr y
 
 parseStr :: (MonadPlus m, MonadFail m) => SParser m String
-parseStr = token $ ch (== '\"') *> many (ch (/= '\"')) <* ch (== '\"')
+parseStr = token
+  $ ch (== '\"') *> many (matchstr "\\\"" <|> ch (/= '\"')) <* ch (== '\"')
 
 parseString :: (MonadPlus m, MonadFail m) => SParser m JSON
 parseString = JString <$> parseStr
@@ -58,15 +59,29 @@ parseBool = parseTrue <|> parseFalse
 parseNull :: MonadFail m => SParser m JSON
 parseNull = matchconst JNull "null"
 
+parseTrailingArray :: (MonadPlus m, MonadFail m) => SParser m [JSON]
+parseTrailingArray = ch (== '[') *> many (parseJSON <* tokench ',')
+  <* tokench ']'
+
+parseNonTrailingArray :: (MonadPlus m, MonadFail m) => SParser m [JSON]
+parseNonTrailingArray = ch (== '[')
+  *> ((:) <$> parseJSON <*> many (tokench ',' *> parseJSON))
+  <* tokench ']'
+
 parseArray :: (MonadPlus m, MonadFail m) => SParser m JSON
-parseArray = JArray
-  <$> (ch (== '[') *> many (parseJSON <* tokench ',') <* tokench ']')
+parseArray = JArray <$> (parseTrailingArray <|> parseNonTrailingArray)
+
+parseTObject :: (MonadPlus m, MonadFail m) => SParser m [(String, JSON)]
+parseTObject = ch (== '{') *> many (parsePair <* tokench ',') <* tokench '}'
+
+parseNTObject :: (MonadPlus m, MonadFail m) => SParser m [(String, JSON)]
+parseNTObject = ch (== '{') *> ((:) <$> parsePair <*> many (tokench ',' *> parsePair)) <* tokench '}'
+
+parsePair :: (MonadPlus m, MonadFail m) => SParser m (String, JSON)
+parsePair = (,) <$> parseStr <* tokench ':' <*> parseJSON
 
 parseObject :: (MonadPlus m, MonadFail m) => SParser m JSON
-parseObject = JObject
-  <$> (ch (== '{')
-       *> many ((,) <$> parseStr <* tokench ':' <*> (parseJSON <* tokench ','))
-       <* tokench '}')
+parseObject = JObject <$> (parseTObject <|> parseNTObject)
 
 parseJSON :: (MonadPlus m, MonadFail m) => SParser m JSON
 parseJSON = token

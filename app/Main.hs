@@ -6,7 +6,7 @@ import           System.IO
 
 main :: IO ()
 main = do
-  handle <- openFile "./input.json" ReadMode
+  handle <- openFile "./test/input-1.json" ReadMode
   contents <- hGetContents handle
   putStr contents
   json <- fst <$> parse contents parseJSON
