@@ -23,22 +23,22 @@ space = ch (`elem` " \n\r\t")
 token :: (MonadPlus m, MonadFail m) => SParser m a -> SParser m a
 token = (*>) $ many space
 
-tokench :: (MonadPlus m, MonadFail m) => Char -> SParser m Char
-tokench x = token $ ch (== x)
+tokenCh :: (MonadPlus m, MonadFail m) => Char -> SParser m Char
+tokenCh x = token $ ch (== x)
 
-matchstr :: MonadFail m => String -> SParser m Char
-matchstr [] = ch $ const False
-matchstr [x] = ch (== x)
-matchstr (x:xs) = ch (== x) *> matchstr xs
+matchStr :: MonadFail m => String -> SParser m Char
+matchStr [] = ch $ const False
+matchStr [x] = ch (== x)
+matchStr (x:xs) = ch (== x) *> matchStr xs
 
-matchconst :: MonadFail m => a -> String -> SParser m a
-matchconst x y = x <$ matchstr y
+matchConst :: MonadFail m => a -> String -> SParser m a
+matchConst x y = x <$ matchStr y
 
 parseStr :: (MonadPlus m, MonadFail m)
          => (SParser m Char -> SParser m String)
          -> SParser m String
 parseStr x = token
-  $ ch (== '\"') *> x (matchstr "\\\"" <|> ch (/= '\"')) <* ch (== '\"')
+  $ ch (== '\"') *> x (matchStr "\\\"" <|> ch (/= '\"')) <* ch (== '\"')
 
 parseString :: (MonadPlus m, MonadFail m) => SParser m JSON
 parseString = JString <$> parseStr many
@@ -47,27 +47,27 @@ parseNumber :: (MonadPlus m, MonadFail m) => SParser m JSON
 parseNumber = JNumber . fromIntegral . read <$> some (ch isDigit)
 
 parseTrue :: MonadFail m => SParser m JSON
-parseTrue = JBool <$> matchconst True "true"
+parseTrue = JBool <$> matchConst True "true"
 
 parseFalse :: MonadFail m => SParser m JSON
-parseFalse = JBool <$> matchconst False "false"
+parseFalse = JBool <$> matchConst False "false"
 
 parseBool :: (MonadPlus m, MonadFail m) => SParser m JSON
 parseBool = parseTrue <|> parseFalse
 
 parseNull :: MonadFail m => SParser m JSON
-parseNull = matchconst JNull "null"
+parseNull = matchConst JNull "null"
 
 parseArr
   :: (MonadPlus m, MonadFail m) => Char -> Char -> SParser m a -> SParser m [a]
-parseArr c c' x = (ch (== c) *> many (x <* tokench ',') <* tokench c')
-  <|> (ch (== c) *> ((:) <$> x <*> many (tokench ',' *> x)) <* tokench c')
+parseArr c c' x = (ch (== c) *> many (x <* tokenCh ',') <* tokenCh c')
+  <|> (ch (== c) *> ((:) <$> x <*> many (tokenCh ',' *> x)) <* tokenCh c')
 
 parseArray :: (MonadPlus m, MonadFail m) => SParser m JSON
 parseArray = JArray <$> parseArr '[' ']' parseJSONData
 
 parsePair :: (MonadPlus m, MonadFail m) => SParser m (String, JSON)
-parsePair = (,) <$> parseStr some <* tokench ':' <*> parseJSONData
+parsePair = (,) <$> parseStr some <* tokenCh ':' <*> parseJSONData
 
 parseObject :: (MonadPlus m, MonadFail m) => SParser m JSON
 parseObject = JObject <$> parseArr '{' '}' parsePair
