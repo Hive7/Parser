@@ -10,12 +10,16 @@ tests:
       - -with-rtsopts=-N
     dependencies:
       - Parser
+      - hspec >= 2.7.1
+      - QuickCheck >= 2.13.2
+      - transformers >= 0.5.6.2
 copyright: 2019 Author name here
 maintainer: example@example.com
 dependencies:
   - base >= 4.7 && < 5
   - containers >= 0.6.0
   - transformers >= 0.5.6.2
+  - mtl >= 2.2.2
 name: Parser
 version: 0.1.0.0
 extra-source-files:

@@ -1,6 +1,7 @@
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE ConstraintKinds #-}
 
-module JSONParser (parseJSON) where
+module JSONParser where
 
 import           JSONTypes
 import           Control.Monad.Trans.State
@@ -8,20 +9,24 @@ import           Control.Monad.Fail as F (MonadFail, fail)
 import           Control.Applicative
 import           Control.Monad
 import           Data.Char
+import           Control.Monad.Error.Class
 
 type SParser = StateT String
 
-type FCst m = MonadFail m
+type FCst m = MonadError String m
 
 type FPCst m = (MonadPlus m, FCst m)
 
 ch :: FCst m => (Char -> Bool) -> SParser m Char
 ch f = do
-  (x:xs) <- get
-  put xs
-  if f x
-    then return x
-    else F.fail "Parse Error"
+  zs <- get
+  case zs of
+    []     -> throwError "Empty String"
+    (x:xs) -> do
+      put xs
+      if f x
+        then return x
+        else throwError "Parse Error"
 
 space :: FCst m => SParser m Char
 space = ch (`elem` " \n\r\t")
