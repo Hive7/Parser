@@ -21,8 +21,8 @@ version: 0.1.0.0
 extra-source-files:
   - README.md
   - ChangeLog.md
-author: Author name here
-github: githubuser/Parser
+author: Oliver James Cole
+github: hive7/Parser
 license: BSD3
 executables:
   Parser-exe:
@@ -34,4 +34,4 @@ executables:
       - -with-rtsopts=-N
     dependencies:
       - Parser
-description: Please see the README on GitHub at <https://github.com/githubuser/Parser#readme>
+description: Please see the README on GitHub at <https://github.com/hive7/Parser#readme>
