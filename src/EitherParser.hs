@@ -46,8 +46,8 @@ parseChar' f = JParser
 leadingSpace' :: JParser a -> JParser a
 leadingSpace' = (*>) $ many (parseChar' (`elem` " \t\r\n"))
 
-spacedChar :: Char -> JParser Char
-spacedChar x = leadingSpace' (parseChar' (== x))
+spacedChar' :: Char -> JParser Char
+spacedChar' x = leadingSpace' (parseChar' (== x))
 
 matchString' :: String -> JParser String
 matchString' = foldr (\x -> (<*>) $ (:) <$> parseChar' (== x)) $ pure []
@@ -69,18 +69,17 @@ parseNull' = JNull <$ matchString' "null"
 parseSepBy' :: JParser a -> JParser b -> JParser [a]
 parseSepBy' p sep = (((:) <$> p <*> many (sep *> p)) <|> pure []) <* many sep
 
+parseArr' :: Char -> Char -> JParser a -> JParser [a]
+parseArr' c c' x = parseChar' (== c) *> parseSepBy' x (spacedChar' ',')
+  <* spacedChar' c'
+
 parseArray' :: JParser [JSON]
-parseArray' = parseChar' (== '[')
-  *> parseSepBy' parseJSONData' (parseChar' (== ','))
-  <* spacedChar ']'
+parseArray' = parseArr' '[' ']' parseJSONData'
 
 parseObject' :: JParser [(String, JSON)]
-parseObject' = parseChar' (== '{')
-  *> parseSepBy'
-    (leadingSpace'
-     $ (,) <$> (parseString' some <* spacedChar ':') <*> parseJSONData')
-    (parseChar' (== ','))
-  <* spacedChar '}'
+parseObject' = parseArr' '{' '}'
+  $ leadingSpace'
+  $ (,) <$> (parseString' some <* spacedChar' ':') <*> parseJSONData'
 
 parseJSONData' :: JParser JSON
 parseJSONData' = leadingSpace'
