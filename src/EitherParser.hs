@@ -1,5 +1,4 @@
--- Parser from scratch to gain a better understanding of the project
-module EitherParser where
+module EitherParser where -- Parser from scratch to gain a better understanding of the project
 
 import           JSONTypes
 import           Control.Applicative
@@ -8,6 +7,9 @@ import           Control.Monad
 import           Data.Char
 
 newtype JParser a = JParser (String -> Either JSONError (a, String))
+
+parse' :: JParser a -> String -> Either JSONError (a, String)
+parse' (JParser x) = x
 
 instance Functor JParser where
   fmap f (JParser g) = JParser $ fmap y . g
@@ -26,8 +28,7 @@ instance Monad JParser where
 
   JParser f >>= g = JParser $ f >=> run
     where
-      run (a, s') = let JParser h = g a
-                    in h s'
+      run (a, s') = parse' (g a) s'
 
 instance Alternative JParser where
   empty = JParser $ const $ Left JUnknown
@@ -42,8 +43,19 @@ parseChar' f = JParser
       | f x -> pure (x, xs)
     (x:_)  -> Left $ JUnexpectedCharacter x
 
+leadingSpace' :: JParser a -> JParser a
+leadingSpace' = (*>) $ many (parseChar' (`elem` " \t\r\n"))
+
+spacedChar :: Char -> JParser Char
+spacedChar x = leadingSpace' (parseChar' (== x))
+
 matchString' :: String -> JParser String
 matchString' = foldr (\x -> (<*>) $ (:) <$> parseChar' (== x)) $ pure []
+
+parseString' :: (JParser Char -> JParser String) -> JParser String
+parseString' x = parseChar' (== '\"')
+  *> x (('\"' <$ matchString' "\\\"") <|> parseChar' (/= '\"'))
+  <* parseChar' (== '\"')
 
 parseNumber' :: (Read i, Integral i) => JParser i
 parseNumber' = read <$> some (parseChar' isDigit)
@@ -57,6 +69,27 @@ parseNull' = JNull <$ matchString' "null"
 parseSepBy' :: JParser a -> JParser b -> JParser [a]
 parseSepBy' p sep = (((:) <$> p <*> many (sep *> p)) <|> pure []) <* many sep
 
-parse' :: JParser a -> String -> Either JSONError (a, String)
-parse' (JParser x) = x
+parseArray' :: JParser [JSON]
+parseArray' = parseChar' (== '[')
+  *> parseSepBy' parseJSONData' (parseChar' (== ','))
+  <* spacedChar ']'
 
+parseObject' :: JParser [(String, JSON)]
+parseObject' = parseChar' (== '{')
+  *> parseSepBy'
+    (leadingSpace'
+     $ (,) <$> (parseString' some <* spacedChar ':') <*> parseJSONData')
+    (parseChar' (== ','))
+  <* spacedChar '}'
+
+parseJSONData' :: JParser JSON
+parseJSONData' = leadingSpace'
+  $ (JObject <$> parseObject')
+  <|> (JArray <$> parseArray')
+  <|> parseNull'
+  <|> (JBool <$> parseBool')
+  <|> (JNumber . fromIntegral <$> parseNumber')
+  <|> (JString <$> parseString' many)
+
+parseJSON' :: String -> Either JSONError JSON
+parseJSON' x = fst <$> parse' parseJSONData' x
