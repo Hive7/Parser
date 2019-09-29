@@ -57,8 +57,8 @@ parseString' x = parseChar' (== '\"')
   *> x (('\"' <$ matchString' "\\\"") <|> parseChar' (/= '\"'))
   <* parseChar' (== '\"')
 
-parseNumber' :: (Read i, Integral i) => JParser i
-parseNumber' = read <$> some (parseChar' isDigit)
+parseNumber' :: JParser Double
+parseNumber' = read <$> some (parseChar' isDigit <|> parseChar' (`elem` "-e."))
 
 parseBool' :: JParser Bool
 parseBool' = (== "true") <$> (matchString' "true" <|> matchString' "false")
@@ -87,7 +87,7 @@ parseJSONData' = leadingSpace'
   <|> (JArray <$> parseArray')
   <|> parseNull'
   <|> (JBool <$> parseBool')
-  <|> (JNumber . fromIntegral <$> parseNumber')
+  <|> (JNumber <$> parseNumber')
   <|> (JString <$> parseString' many)
 
 parseJSON' :: String -> Either JSONError JSON
